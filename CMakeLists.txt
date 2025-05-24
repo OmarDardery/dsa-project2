@@ -10,4 +10,5 @@ add_executable(dsa_project2
         .idea/vcs.xml
         .idea/workspace.xml
         .gitattributes
-        main.cpp)
+        maze_exprt.cpp
+        maze_exprt.cpp)

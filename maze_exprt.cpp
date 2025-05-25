@@ -2,6 +2,7 @@
 #include <vector>
 #include <climits>
 #include <cstring>
+#include <algorithm>
 using namespace std;
 
 struct coordinates {
@@ -23,10 +24,10 @@ void sort(vector<int> & arr, vector<string>& helper) {
     }
 }
 
-void neighboursAndDistance(const vector<int> &arr,const vector<string>& helper, vector<string>& neighbours, vector<int>& distances ) {
+void neighboursAndDistance(const vector<int> &arr, vector<int>& indices, vector<int>& distances ) {
     for (int i = 0; i < arr.size(); i++) {
         if (arr[i] != 0) {
-            neighbours.push_back(helper[i]);
+            indices.push_back(i);
             distances.push_back(arr[i]);
         }
     }
@@ -47,12 +48,12 @@ public:
     bool inPath;
     bool wall;
     tile() : tileCoordinates{0, 0}, inPath(false), wall(false) {}
-    tile(int i, int j, bool w, bool ip = false) {
+    tile(int i, int j, bool w) {
         this->tileCoordinates = {i, j};
         this->tileCoordinates.i = i;
         this->tileCoordinates.j = j;
-        this->inPath = w ? false : ip;
         this->wall = w;
+        this->inPath = false;
     }
     void display() const {
         if (wall) {
@@ -188,52 +189,77 @@ public:
             cout << endl;
         }
     }
+    vector <string> bfs(const string& start, const string & end) const {
+        vector<vector<string>> queue = {{start}};
+        int endIndex = findIndex(this->nodeNames, end);
+        vector<bool> visited(this->nodeCount, false);
+        while (!queue.empty()) {
+            vector<string> currentPath = queue[0];
+            queue.erase(queue.begin());
+            int currentIndex = findIndex(this->nodeNames, currentPath[currentPath.size() - 1]);
+            if (currentIndex == endIndex) {
+                return currentPath;
+            }
+            for (int i = 0; i < this->nodeCount; i++) {
+                if (adjList[currentIndex][i] != 0 && !visited[i]) {
+                    vector<string> newPath = currentPath;
+                    newPath.push_back(this->nodeNames[i]);
+                    queue.push_back(newPath);
+                    visited[i] = true;
+                }
+            }
+        }
+        return {"no path"};
+
+    }
     [[nodiscard]] vector<string> dijkstra(const string& start, const string & end) const { // reference to my understanding: https://youtu.be/bZkzH5x0SKU?si=BYyPPRK8WC5liSkf
         int startIndex = findIndex(this->nodeNames, start);
-        vector<string> path;
+        if (startIndex == -1) {
+            cerr << "Invalid start node" << endl;
+        }
         vector<int> distances(this->nodeCount, INT_MAX);
         distances[startIndex] = 0;
         vector<bool> visited(this->nodeCount, false);
-        visited[startIndex] = true;
         vector<string> previous(this->nodeCount, "no previous");
-        vector<string> queue = this->nodeNames;
-        vector<int> queueDistances = distances;
         for (int j = 0; j < this->nodeCount - 1; j++) {
-            sort(queueDistances, queue);
-            vector<string> neighbours;
-            vector<int> neighbourDistances;
-            int currentIndex = findIndex(this->nodeNames, queue[0]);
-            neighboursAndDistance(adjList[currentIndex], this->nodeNames, neighbours, neighbourDistances);
-            for (int i = 0; i < neighbours.size(); i++) {
-                int neighbourIndex = findIndex(this->nodeNames, neighbours[i]);
-                if (distances[neighbourIndex] > neighbourDistances[i] + distances[currentIndex]) {
-                    distances[neighbourIndex] = neighbourDistances[i] + distances[currentIndex];
-                    previous[neighbourIndex] = this->nodeNames[currentIndex];
+            int shortestDistance = INT_MAX;
+            int shortestIndex = -1;
+            for (int i = 0; i < this->nodeCount; i++) { // Should also start from 0, not 1!
+                if (!visited[i] && distances[i] < shortestDistance) {
+                    shortestDistance = distances[i];
+                    shortestIndex = i;
                 }
             }
-            visited[currentIndex] = true;
-            if (queue[0] == end) {
-                break;
+            if (shortestIndex == -1) break; // No more reachable nodes!
+            vector<int> neighbourIndices;
+            vector<int> distanceFromNeighbour;
+            neighboursAndDistance(adjList[shortestIndex], neighbourIndices,distanceFromNeighbour);
+            for (int i = 0; i < neighbourIndices.size(); i++) {
+                if (distances[neighbourIndices[i]] > distanceFromNeighbour[i] + distances[shortestIndex]) {
+                    distances[neighbourIndices[i]] = distanceFromNeighbour[i] + distances[shortestIndex];
+                    previous[neighbourIndices[i]] = this->nodeNames[shortestIndex];
+                }
             }
-            queue.erase(queue.begin());
-            queueDistances.erase(queueDistances.begin());
-            sort(queueDistances, queue);
+            visited[shortestIndex] = true;
         }
-        string current = end;
-        int limit = 0;
-        while (current != start && limit <= this->nodeCount) {
-            path.push_back(current);
-            current = previous[findIndex(this->nodeNames, current)];
+        int endIndex = findIndex(this->nodeNames, end);
+        if (endIndex == -1) {
+            cerr << "Invalid end node" << endl;
         }
-        if (limit == this->nodeCount) {
+        vector<string> path;
+        int current = endIndex;
+        while (current != -1 && previous[current] != "no previous") {
+            path.push_back(this->nodeNames[current]);
+            current = findIndex(this->nodeNames, previous[current]);
+        }
+        if (current != -1 && current == startIndex) {
+            path.push_back(this->nodeNames[current]);
+        }else {
             path.clear();
             path.emplace_back("no path");
-            return path;
         }
-
-        path.push_back(start);
+        reverse(path.begin(), path.end());
         return path;
-
     }
     [[nodiscard]] string getNodeName(const int& index) const {
         return this->nodeNames[index];
@@ -267,22 +293,40 @@ void maze::solve() {
     int sj;
     int ei;
     int ej;
-    cout << "Enter start i: ";
+    cout << "Enter start row: ";
     cin >> si;
-    cout << "Enter start j: ";
+    cout << "Enter start column: ";
     cin >> sj;
-    cout << "Enter end i: ";
+    cout << "Enter end row: ";
     cin >> ei;
-    cout << "Enter end j: ";
+    cout << "Enter end column: ";
     cin >> ej;
-    vector<string> path = myGraph.dijkstra("i" + to_string(si) + "j" + to_string(sj), "i" + to_string(ei) + "j" + to_string(ej));
+    cout << "what kind of algorithm?: " << endl << "1. BFS" << endl << "2. Dijkstra" << endl << "enter your choice: ";
+    int choice;
+    cin >> choice;
+    vector<string> path;
+    string start = "i" + to_string(si - 1) + "j" + to_string(sj - 1), end = "i" + to_string(ei - 1) + "j" + to_string(ej - 1);
+    switch (choice) {
+        case 1:
+            cout << "BFS path: " << endl;
+            path = myGraph.bfs(start, end);
+            break;
+        case 2:
+            cout << "Dijkstra path: " << endl;
+            path = myGraph.dijkstra(start, end);
+            break;
+        default:
+            cout << "Invalid choice" << endl;
+            return;
+    }
     if (path.size() == 1 && path[0] == "no path") {
         cout << "No path found" << endl;
         return;
-    }
-    for (const auto & t: path) {
-        coordinates c = extractCoordinates(t);
-        mazeTiles[c.i][c.j].inPath = true;
+    } else {
+        for (const auto & t: path) {
+            coordinates c = extractCoordinates(t);
+            mazeTiles[c.i][c.j].inPath = true;
+        }
     }
 }
 
@@ -294,7 +338,7 @@ int main() {
     return 0;
 }
 /*
- Example 1 run:
+----------Example 1 run:
 Enter maze rows: 3
 Enter maze columns: 3
 enter maze tiles row by row, 1 for walls, 0 for open tiles, make sure a space is between each tile:
@@ -318,7 +362,7 @@ Enter end j: 2
 ⬛🔵🔵
 ⬜⬜⬛
 
-Example 2 run:
+---------Example 2 run:
 Enter maze rows: 5
 Enter maze columns: 4
 enter maze tiles row by row, 1 for walls, 0 for open tiles, make sure a space is between each tile:
@@ -349,6 +393,78 @@ Enter end j: 2
 
 Process finished with exit code 0
 
+---------Example 3 run:
+Enter maze rows: 5
+Enter maze columns: 5
+enter maze tiles row by row, 1 for walls, 0 for open tiles, make sure a space is between each tile:
+enter row 1:
+1 0 0 1 1
+enter row 2:
+0 0 1 0 0
+enter row 3:
+1 0 0 1 0
+enter row 4:
+1 1 0 0 0
+enter row 5:
+0 0 0 1 1
+⬛⬜⬜⬛⬛
+⬜⬜⬛⬜⬜
+⬛⬜⬜⬛⬜
+⬛⬛⬜⬜⬜
+⬜⬜⬜⬛⬛
+Enter start row: 1
+Enter start column: 2
+Enter end row: 5
+Enter end column: 1
+what kind of algorithm?:
+1. BFS
+2. Dijkstra
+enter your choice: 1
+BFS path:
+⬛🔵⬜⬛⬛
+⬜🔵⬛⬜⬜
+⬛🔵🔵⬛⬜
+⬛⬛🔵⬜⬜
+🔵🔵🔵⬛⬛
+
+
+-------example 4 run:
+
+
+Enter maze rows: 5
+Enter maze columns: 5
+enter maze tiles row by row, 1 for walls, 0 for open tiles, make sure a space is between each tile:
+enter row 1:
+1 0 0 1 1
+enter row 2:
+0 0 1 0 0
+enter row 3:
+1 0 0 1 0
+enter row 4:
+1 1 0 0 0
+enter row 5:
+0 0 0 1 1
+⬛⬜⬜⬛⬛
+⬜⬜⬛⬜⬜
+⬛⬜⬜⬛⬜
+⬛⬛⬜⬜⬜
+⬜⬜⬜⬛⬛
+Enter start row: 1
+Enter start column: 2
+Enter end row: 2
+Enter end column: 4
+what kind of algorithm?:
+1. BFS
+2. Dijkstra
+enter your choice: 2
+Dijkstra path:
+⬛🔵⬜⬛⬛
+⬜🔵⬛🔵🔵
+⬛🔵🔵⬛🔵
+⬛⬛🔵🔵🔵
+⬜⬜⬜⬛⬛
+
+Process finished with exit code 0
 
 Process finished with exit code 0
 */

@@ -230,7 +230,7 @@ public:
                     shortestIndex = i;
                 }
             }
-            if (shortestIndex == -1) break; // No more reachable nodes!
+            if (shortestIndex == -1) break; // no more reachable nodes!
             vector<int> neighbourIndices;
             vector<int> distanceFromNeighbour;
             neighboursAndDistance(adjList[shortestIndex], neighbourIndices,distanceFromNeighbour);
@@ -293,48 +293,75 @@ void maze::solve() {
     int sj;
     int ei;
     int ej;
-    cout << "Enter start row: ";
-    cin >> si;
-    cout << "Enter start column: ";
-    cin >> sj;
-    cout << "Enter end row: ";
-    cin >> ei;
-    cout << "Enter end column: ";
-    cin >> ej;
+    bool invalid = true;
+    while (invalid) {
+        cout << "Enter start row: ";
+        cin >> si;
+        cout << "Enter start column: ";
+        cin >> sj;
+        if (this->mazeTiles[si - 1][sj - 1].wall) {
+            cout << "Invalid start tile, you want me to start at a wall????!!" << endl;
+        }else {
+            invalid = false;
+        }
+    }
+    invalid = true;
+    while (invalid) {
+        cout << "Enter end row: ";
+        cin >> ei;
+        cout << "Enter end column: ";
+        cin >> ej;
+        if (this->mazeTiles[ei - 1][ej - 1].wall) {
+            cout << "Invalid end tile, you want me to hit a wall???!" << endl;
+        }else {
+            invalid = false;
+        }
+    }
     cout << "what kind of algorithm?: " << endl << "1. BFS" << endl << "2. Dijkstra" << endl << "enter your choice: ";
     int choice;
     cin >> choice;
     vector<string> path;
-    string start = "i" + to_string(si - 1) + "j" + to_string(sj - 1), end = "i" + to_string(ei - 1) + "j" + to_string(ej - 1);
+    string startTile = "i" + to_string(si - 1) + "j" + to_string(sj - 1), endTile = "i" + to_string(ei - 1) + "j" + to_string(ej - 1);
     switch (choice) {
         case 1:
             cout << "BFS path: " << endl;
-            path = myGraph.bfs(start, end);
+            path = myGraph.bfs(startTile, endTile);
             break;
         case 2:
             cout << "Dijkstra path: " << endl;
-            path = myGraph.dijkstra(start, end);
+            path = myGraph.dijkstra(startTile, endTile);
             break;
         default:
             cout << "Invalid choice" << endl;
+            cout << "think u can trick the maze exprt??!" << endl;
             return;
     }
     if (path.size() == 1 && path[0] == "no path") {
         cout << "No path found" << endl;
+        cout << "You are trying to trick me......" << endl;
         return;
     } else {
         for (const auto & t: path) {
             coordinates c = extractCoordinates(t);
             mazeTiles[c.i][c.j].inPath = true;
         }
+        this->display();
+        cout << "mwahahaa i have defeated you!!" << endl;
     }
 }
 
 int main() {
-    maze myMaze;
-    myMaze.display();
-    myMaze.solve();
-    myMaze.display();
+    cout << "mwahahaha i am the maze exprt no one can defeat me!!! wanna try?(y/n): ";
+    char c;
+    cin >> c;
+    cout << "Note: example runs are in comments for explanation. Since all weights are the same, bfs can also be a method." << endl;
+    while (c == 'y') {
+        maze myMaze;
+        myMaze.display();
+        myMaze.solve();
+        cout << "try again?(y/n): ";
+        cin >> c;
+    }
     return 0;
 }
 /*
